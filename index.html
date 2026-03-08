@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AC Fish Tracker — Animal Crossing Fish Collection & Speedrun Tracker</title>
+<meta name="description" content="Track your Animal Crossing fish collection and speedruns with auto-detection OCR, split timing, and LiveSplit integration.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --cream: #faf3e0;
+  --cream-dark: #f0e6c8;
+  --green-deep: #3d6b4a;
+  --green: #508c5e;
+  --green-light: #6bb87b;
+  --green-pale: #e8f0e4;
+  --orange: #f4a742;
+  --orange-glow: #f7bc6a;
+  --brown: #5a3e28;
+  --brown-light: #7d5a3c;
+  --brown-muted: #a8896c;
+  --white: #fffdf8;
+  --shadow-warm: rgba(90, 62, 40, 0.12);
+  --shadow-deep: rgba(90, 62, 40, 0.22);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--brown);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4 { font-family: 'Fredoka', sans-serif; font-weight: 600; }
+
+/* ══════ GRAIN OVERLAY ══════ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ══════ LEAF PATTERN BG ══════ */
+.leaf-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 C20 15 10 25 15 35 C20 45 25 40 30 50 C35 40 40 45 45 35 C50 25 40 15 30 5Z' fill='%23508c5e' /%3E%3C/svg%3E");
+  background-size: 80px 80px;
+}
+
+/* ══════ NAV ══════ */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(250, 243, 224, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 2px solid rgba(80, 140, 94, 0.15);
+  transition: box-shadow 0.3s;
+}
+
+nav.scrolled { box-shadow: 0 4px 24px var(--shadow-warm); }
+
+.nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+}
+
+.nav-logo {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--green-deep);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.nav-logo .fish-icon {
+  font-size: 1.5rem;
+  display: inline-block;
+  animation: swim 3s ease-in-out infinite;
+}
+
+@keyframes swim {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(3px) rotate(2deg); }
+  75% { transform: translateX(-3px) rotate(-2deg); }
+}
+
+.nav-links { display: flex; gap: 28px; list-style: none; }
+
+.nav-links a {
+  color: var(--brown-light);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--green); }
+
+.nav-cta {
+  background: var(--green);
+  color: var(--white) !important;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-weight: 600 !important;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.nav-cta:hover { background: var(--green-deep); transform: translateY(-1px); }
+
+/* ══════ HERO ══════ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 60px;
+  position: relative;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(to bottom, transparent, var(--cream));
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 740px;
+}
+
+.hero-badge {
+  display: inline-block;
+  background: var(--green-pale);
+  color: var(--green-deep);
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 6px 16px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  border: 1.5px solid rgba(80, 140, 94, 0.2);
+  animation: fadeUp 0.6s ease-out both;
+}
+
+.hero h1 {
+  font-size: clamp(2.8rem, 7vw, 4.5rem);
+  line-height: 1.08;
+  color: var(--green-deep);
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+  animation: fadeUp 0.6s ease-out 0.1s both;
+}
+
+.hero h1 span {
+  background: linear-gradient(135deg, var(--orange) 0%, #e8923a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 1.2rem;
+  color: var(--brown-muted);
+  max-width: 520px;
+  margin: 0 auto 36px;
+  line-height: 1.7;
+  animation: fadeUp 0.6s ease-out 0.2s both;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.6s ease-out 0.3s both;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  border-radius: 14px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-decoration: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: var(--white);
+  box-shadow: 0 4px 16px rgba(80, 140, 94, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.btn-primary:hover {
+  background: var(--green-deep);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(80, 140, 94, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--brown);
+  border: 2px solid var(--cream-dark);
+}
+
+.btn-secondary:hover {
+  border-color: var(--green-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-warm);
+}
+
+.hero-fish {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 48px;
+  animation: fadeUp 0.6s ease-out 0.45s both;
+}
+
+.hero-fish span {
+  font-size: 2.2rem;
+  animation: bob 2.5s ease-in-out infinite;
+}
+
+.hero-fish span:nth-child(2) { animation-delay: 0.3s; }
+.hero-fish span:nth-child(3) { animation-delay: 0.6s; }
+.hero-fish span:nth-child(4) { animation-delay: 0.9s; }
+.hero-fish span:nth-child(5) { animation-delay: 1.2s; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════ SECTIONS ══════ */
+section {
+  padding: 100px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-tag {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--green);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  color: var(--green-deep);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+
+.section-sub {
+  font-size: 1.1rem;
+  color: var(--brown-muted);
+  max-width: 560px;
+  line-height: 1.65;
+}
+
+/* ══════ FEATURES ══════ */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 52px;
+}
+
+.feature-card {
+  background: var(--white);
+  border-radius: 18px;
+  padding: 32px 28px;
+  border: 1.5px solid rgba(80, 140, 94, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--green-light), var(--orange));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 36px var(--shadow-warm);
+  border-color: rgba(80, 140, 94, 0.2);
+}
+
+.feature-card:hover::after { opacity: 1; }
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 18px;
+}
+
+.fi-green { background: var(--green-pale); }
+.fi-orange { background: #fef3e0; }
+.fi-cream { background: var(--cream-dark); }
+
+.feature-card h3 {
+  font-size: 1.15rem;
+  color: var(--brown);
+  margin-bottom: 8px;
+}
+
+.feature-card p {
+  font-size: 0.92rem;
+  color: var(--brown-muted);
+  line-height: 1.6;
+}
+
+/* ══════ HOW TO USE ══════ */
+.steps-section {
+  background: var(--green-deep);
+  border-radius: 28px;
+  padding: 72px 56px;
+  margin-top: 0;
+  color: var(--cream);
+  position: relative;
+  overflow: hidden;
+}
+
+.steps-section::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: rgba(107, 184, 123, 0.15);
+}
+
+.steps-section::after {
+  content: '';
+  position: absolute;
+  bottom: -40px;
+  left: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: rgba(244, 167, 66, 0.1);
+}
+
+.steps-section .section-tag { color: var(--orange-glow); }
+.steps-section .section-title { color: var(--white); }
+.steps-section .section-sub { color: rgba(232, 245, 233, 0.7); }
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+  position: relative;
+  z-index: 1;
+}
+
+.step {
+  text-align: center;
+}
+
+.step-num {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--orange);
+  color: var(--white);
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 12px rgba(244, 167, 66, 0.4);
+}
+
+.step h4 {
+  font-size: 1.05rem;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+
+.step p {
+  font-size: 0.88rem;
+  color: rgba(232, 245, 233, 0.65);
+  line-height: 1.5;
+}
+
+/* ══════ DOWNLOAD ══════ */
+.download-section {
+  text-align: center;
+  padding-bottom: 120px;
+}
+
+.download-card {
+  background: var(--white);
+  border-radius: 24px;
+  padding: 56px 48px;
+  margin-top: 40px;
+  border: 2px solid rgba(80, 140, 94, 0.12);
+  box-shadow: 0 8px 40px var(--shadow-warm);
+  position: relative;
+  overflow: hidden;
+}
+
+.download-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--green), var(--orange), var(--green-light));
+}
+
+.download-card h3 {
+  font-size: 1.8rem;
+  color: var(--green-deep);
+  margin-bottom: 12px;
+}
+
+.download-card p {
+  color: var(--brown-muted);
+  margin-bottom: 32px;
+  font-size: 1.05rem;
+}
+
+.download-btn {
+  font-size: 1.15rem;
+  padding: 16px 44px;
+  border-radius: 16px;
+}
+
+.download-note {
+  margin-top: 20px;
+  font-size: 0.82rem;
+  color: var(--brown-muted);
+}
+
+/* ══════ FOOTER ══════ */
+footer {
+  background: var(--green-deep);
+  color: rgba(232, 245, 233, 0.7);
+  padding: 48px 24px 32px;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 32px;
+}
+
+.footer-brand h4 {
+  font-size: 1.2rem;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+
+.footer-brand p {
+  font-size: 0.85rem;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.footer-links h5 {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.footer-links a {
+  display: block;
+  color: rgba(232, 245, 233, 0.6);
+  text-decoration: none;
+  font-size: 0.88rem;
+  padding: 3px 0;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover { color: var(--orange-glow); }
+
+.footer-bottom {
+  max-width: 1100px;
+  margin: 32px auto 0;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.footer-bottom a { color: var(--orange-glow); text-decoration: none; }
+.footer-bottom a:hover { text-decoration: underline; }
+
+/* ══════ RESPONSIVE ══════ */
+@media (max-width: 900px) {
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+  .steps-section { padding: 48px 32px; }
+}
+
+@media (max-width: 600px) {
+  .features-grid { grid-template-columns: 1fr; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .steps-section { padding: 40px 24px; }
+  .download-card { padding: 40px 24px; }
+  .nav-links { display: none; }
+  .hero h1 { font-size: 2.4rem; }
+  .footer-inner { flex-direction: column; }
+}
+
+/* ══════ SCROLL REVEAL ══════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<div class="leaf-bg"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <span class="fish-icon">🐟</span> AC Fish Tracker
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-to-use">How to Use</a></li>
+      <li><a href="#download" class="nav-cta">Download</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">Free to Download</div>
+    <h1>Track Every <span>Fish</span> Across Every Game</h1>
+    <p class="hero-sub">
+      The definitive Animal Crossing fish collection tracker — with OCR auto-detection,
+      speedrun splits, and support for all five mainline games.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/jataylo/ac-fish-tracker-website/releases/download/alpha/ACFishTracker.zip" class="btn btn-primary">
+        ⬇ Download Now
+      </a>
+      <a href="#features" class="btn btn-secondary">
+        See Features
+      </a>
+    </div>
+    <div class="hero-fish">
+      <span>🐡</span><span>🐠</span><span>🎣</span><span>🐟</span><span>🦈</span>
+    </div>
+  </div>
+</header>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="reveal">
+    <div class="section-tag">Everything You Need</div>
+    <h2 class="section-title">Built for collectors & speedrunners</h2>
+    <p class="section-sub">
+      From casual completion tracking to competitive speedruns —
+      AC Fish Tracker has you covered.
+    </p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-green">📷</div>
+      <h3>Game Capture OCR</h3>
+      <p>Point it at your game window and fish are auto-detected as you catch them. Multi-pipeline OCR with fuzzy matching handles even imperfect reads.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-orange">⚡</div>
+      <h3>Split System</h3>
+      <p>Create speedrun splits with custom highlight colors and styles. Navigate with arrow keys and track your progress through each route segment.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-cream">🎮</div>
+      <h3>5 Game Support</h3>
+      <p>Full fish data for Animal Crossing, Wild World, City Folk, New Leaf, and New Horizons — with per-game layouts and settings.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-green">🎨</div>
+      <h3>Custom Backgrounds</h3>
+      <p>Choose from 9 pattern styles with custom colors, or use your own images. Backgrounds render seamlessly across the entire gallery.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-orange">🔗</div>
+      <h3>LiveSplit Integration</h3>
+      <p>Connect to LiveSplit Server for automatic split advancement. Your timer stays in sync with your fish catches.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon fi-cream">💾</div>
+      <h3>Profiles System</h3>
+      <p>Save and load named profiles for different runs, routes, or goals. Each profile captures your complete tracker state.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO USE -->
+<section id="how-to-use" style="padding-bottom: 60px;">
+  <div class="steps-section reveal">
+    <div class="section-tag">Get Started</div>
+    <h2 class="section-title">Up and running in seconds</h2>
+    <p class="section-sub">No install wizards. No sign-ups. Just download, extract, and go.</p>
+
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h4>Download</h4>
+        <p>Grab the latest release. It's a single zip file.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h4>Extract & Run</h4>
+        <p>Unzip anywhere and launch <strong>ACFishTracker.exe</strong>. No installation needed.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h4>Select Your Game</h4>
+        <p>Choose from AC, WW, CF, NL, or NH. Each game has its own fish list and images.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h4>Start Tracking</h4>
+        <p>Click fish to mark caught, or enable Game Capture for hands-free auto-detection.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download" class="download-section">
+  <div class="reveal">
+    <div class="section-tag">Free Download</div>
+    <h2 class="section-title">Ready to track?</h2>
+    <p class="section-sub" style="margin: 0 auto;">
+      Windows 10/11. Portable — no installation required.
+    </p>
+
+    <div class="download-card">
+      <h3>AC Fish Tracker</h3>
+      <p>Latest release with all features included. Just extract and run.</p>
+      <a href="https://github.com/jataylo/ac-fish-tracker-website/releases/download/alpha/ACFishTrackerFixed.zip" class="btn btn-primary download-btn">
+        ⬇ Download Latest Release
+      </a>
+      <p class="download-note">
+        Requires Windows 10/11 &bull; Game Capture OCR uses Windows built-in OCR engine
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h4>🐟 AC Fish Tracker</h4>
+      <p>Animal Crossing fish tracker for collectors and speedrunners.</p>
+    </div>
+    <div class="footer-links">
+      <h5>Community</h5>
+      <a href="https://discord.gg/drNAV2k6">Discord</a>
+      <a href="https://www.patreon.com/c/honestwish">Patreon</a>
+      <a href="https://www.twitch.tv/honestwish">Twitch</a>
+    </div>
+    <div class="footer-links">
+      <h5>Support</h5>
+      <a href="https://discord.gg/drNAV2k6">Report a Bug (Discord)</a>
+      <a href="https://github.com/jataylo/ac-fish-tracker-website/releases/download/alpha/ACFishTrackerFixed.zip">Download Latest</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>
+      Developed by <a href="https://www.twitch.tv/honestwish">honestwish</a>
+      &bull; Inspired by <a href="https://twitch.tv/imtwistedtay">imtwistedtay</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+// Nav scroll shadow
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Scroll reveal
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), i * 80);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+
+reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
